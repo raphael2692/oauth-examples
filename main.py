@@ -1,17 +1,29 @@
-from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import RedirectResponse, HTMLResponse
 from auth_provider import AuthProvider, MicrosoftAuth, GoogleAuth
 import os
 from typing import Optional
 from decouple import config
+from sqlmodel import SQLModel, create_engine
+from models import User
+from user_provisioner import UserProvisioner
+from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
+# Database setup
+DATABASE_URL = "sqlite:///./database.db"
+engine = create_engine(DATABASE_URL)
+
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
+
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
 
 def get_auth_provider(provider_name: str) -> AuthProvider:
-    """Factory function to create auth provider instances"""
     if provider_name == "google":
         return GoogleAuth(
             client_id=config("GOOGLE_CLIENT_ID"),
@@ -64,9 +76,7 @@ async def auth_callback(
     request: Request,
     code: Optional[str] = None,
     state: Optional[str] = None,
-   
 ):
-    # Validate state parameter
     stored_state = request.cookies.get("oauth_state")
     if not stored_state or stored_state != state:
         raise HTTPException(status_code=400, detail="Invalid state parameter")
@@ -79,20 +89,27 @@ async def auth_callback(
     if not code:
         raise HTTPException(status_code=400, detail="Authorization code missing")
     
-    # Process authentication callback
     auth_result = auth_provider.process_callback(code)
     if not auth_result:
         raise HTTPException(status_code=401, detail="Authentication failed")
     
-    # Create response and set user cookies
-    response = RedirectResponse(url="/")
-    response.set_cookie("user_email", auth_result.user.email or "", path="/")
-    response.set_cookie("user_name", auth_result.user.name or "", path="/")
+    user_email = auth_result.user.email
+    user_name = auth_result.user.name or ""
     
-    # Clear the state cookie
+    if not user_email:
+        raise HTTPException(status_code=400, detail="Email not provided by the provider.")
+    
+    # Provision user
+    provisioner = UserProvisioner(engine)
+    provisioner.provision_user(email=user_email, name=user_name)
+    
+    response = RedirectResponse(url="/")
+    response.set_cookie("user_email", user_email or "", path="/")
+    response.set_cookie("user_name", user_name or "", path="/")
     response.delete_cookie("oauth_state")
     
     return response
+
 
 @app.get("/logout")
 async def logout():

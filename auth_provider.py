@@ -4,14 +4,12 @@ from typing import Optional, Dict, Any
 import requests
 from urllib.parse import urlencode
 import msal
+from models import User
 
-class UserInfo(BaseModel):
-    email: Optional[str]
-    name: Optional[str]
 
 class AuthResult(BaseModel):
     token: Dict[str, Any]
-    user: UserInfo
+    user: User
 
 class AuthProvider(ABC):
     @abstractmethod
@@ -69,7 +67,7 @@ class GoogleAuth(AuthProvider):
 
         return AuthResult(
             token=tokens,
-            user=UserInfo(
+            user=User(
                 email=user_info.get("email"),
                 name=user_info.get("name")
             )
@@ -116,7 +114,7 @@ class MicrosoftAuth(AuthProvider):
         claims = result.get("id_token_claims", {})
         return AuthResult(
             token=result,
-            user=UserInfo(
+            user=User(
                 email=claims.get("preferred_username"),
                 name=claims.get("name")
             )
