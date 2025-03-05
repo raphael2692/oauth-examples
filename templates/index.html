@@ -1,19 +1,51 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Auth Example</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 </head>
+
 <body>
+
     <main class="container">
-        {% if user_name %}
-            <h1>Welcome {{ user_name }}!</h1>
-            <p>Email: {{ user_email }}</p>
-            <a href="/logout" role="button">Logout</a>
-        {% else %}
-        <a href="/login/google">Login with Google</a>
-        <a href="/login/microsoft">Login with Microsoft</a>
-        {% endif %}
+        <nav>
+            <ul>
+                <li><strong>Some app</strong></li>
+            </ul>
+            <ul>
+                {% if user_name %}
+                <li>
+                    <a href="/logout">Logout</a>
+                </li>
+
+                {% else %}
+                <li>
+                    <details class="dropdown">
+                        <summary>
+                            Login
+                        </summary>
+                        <ul dir="rtl">
+                            <li><a href="/login/google">Google</a></li>
+                            <li><a href="/login/microsoft">Microsoft</a></li>
+                        </ul>
+                    </details>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+
+
+        <section>
+            {% if user_name %}
+            <p>Welcome {{ user_name }}!</p>
+            <p>Your email is: {{ user_email }}</p>
+            {% else %}
+            <p>Who are you?</p>
+            {% endif %}
+        </section>
+
     </main>
 </body>
+
 </html>
