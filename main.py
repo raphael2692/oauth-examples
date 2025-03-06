@@ -8,6 +8,7 @@ from sqlmodel import SQLModel, create_engine
 from models import User
 from user_provisioner import UserProvisioner
 from fastapi.templating import Jinja2Templates
+from contextlib import asynccontextmanager
 
 app = FastAPI()
 
@@ -19,9 +20,13 @@ engine = create_engine(DATABASE_URL)
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
-@app.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     create_db_and_tables()
+    yield
+    # Shutdown
+    # Perform any cleanup if needed
 
 def get_auth_provider(provider_name: str) -> AuthProvider:
     if provider_name == "google":
@@ -89,7 +94,7 @@ async def auth_callback(
     if not code:
         raise HTTPException(status_code=400, detail="Authorization code missing")
     
-    auth_result = auth_provider.process_callback(code)
+    auth_result = await auth_provider.process_callback(code)  # Await the async method
     if not auth_result:
         raise HTTPException(status_code=401, detail="Authentication failed")
     
@@ -99,7 +104,7 @@ async def auth_callback(
     if not user_email:
         raise HTTPException(status_code=400, detail="Email not provided by the provider.")
     
-    # Provision user
+    # Provision user (consider making this async if using async database driver)
     provisioner = UserProvisioner(engine)
     provisioner.provision_user(email=user_email, name=user_name)
     
